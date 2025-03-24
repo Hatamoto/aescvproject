@@ -1,2 +1,6 @@
 venv/
+tfvenv/
 dataset/
+models/
+checkpoint/
+savedata/

@@ -6,6 +6,7 @@ from tensorflow import keras
 from tensorflow.keras import layers, mixed_precision
 from tensorflow.keras import backend as K
 
+print("Starting...")
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
@@ -17,11 +18,15 @@ if gpus:
 
 mixed_precision.set_global_policy('mixed_float16')
 
+print("1")
+
 strategy = tf.distribute.MirroredStrategy()
 print(f"✅ Using GPU strategy with {strategy.num_replicas_in_sync} device(s)")
 
 image_dir = "./dataset/train/train/images/"
 mask_dir = "./dataset/train/train/masks/"
+
+print("2")
 
 IMG_HEIGHT, IMG_WIDTH = 256, 256
 BATCH_SIZE = 32
@@ -99,3 +104,5 @@ with strategy.scope():
         loss=combined_loss,
         metrics=['accuracy', iou_score]
     )
+
+print("End")
