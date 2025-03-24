@@ -3,8 +3,8 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers, mixed_precision
-from tensorflow.keras import backend as K
+from tf.keras import layers, mixed_precision
+from tf.keras import backend as K
 
 print("Starting...")
 gpus = tf.config.list_physical_devices('GPU')
@@ -38,8 +38,6 @@ mask_paths = sorted([os.path.join(mask_dir, fname) for fname in os.listdir(mask_
 def postprocess_mask(pred_mask):
     return (pred_mask > 0.5).astype(np.uint8) * 255
 
-from tensorflow.keras import backend as K
-
 def iou_score(y_true, y_pred, smooth=1e-6):
     y_true = K.cast(y_true > 0.5, 'float32')
     y_pred = K.cast(y_pred > 0.5, 'float32')
@@ -69,9 +67,9 @@ def combined_loss(y_true, y_pred):
     dice_loss = 1 - (2. * intersection + 1e-6) / (K.sum(y_true_f) + K.sum(y_pred_f) + 1e-6)
 
     bce_loss = tf.keras.losses.binary_crossentropy(y_true, y_pred)
-    tversky_loss_value = tversky_loss(y_true, y_pred)
+    #tversky_loss_value = tversky_loss(y_true, y_pred)
 
-    return 0.1 * dice_loss + 0.7 * tversky_loss_value + 0.2 * bce_loss
+    return 0.5 * dice_loss + 0.5 * bce_loss
 
 def unet_model(input_shape=(256, 256, 3)):
     inputs = layers.Input(shape=input_shape)

@@ -3,11 +3,14 @@
 
 import os
 import cv2
+import gc
+import csv
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers, mixed_precision
-from tensorflow.keras import backend as K
+from tf import keras
+from tf.keras import layers, mixed_precision, models, optimizers
+from tf.keras import backend as K
+from tf.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
@@ -47,11 +50,6 @@ def postprocess_mask(pred_mask):
 
 # IoU (Jaccard Index) Metric Implementation
 
-# In[ ]:
-
-
-from tensorflow.keras import backend as K
-
 def iou_score(y_true, y_pred, smooth=1e-6):
     # Ensure duotone (binary) format for accurate IoU calculation
     y_true = K.cast(y_true > 0.5, 'float32')
@@ -68,20 +66,6 @@ def iou_score(y_true, y_pred, smooth=1e-6):
 
 # Duotone masks are strictly binary — sharpening boundaries is critical. Using Dice Loss alone may blur edges, so we combine it with Binary Cross-Entropy
 
-# In[ ]:
-
-
-def improved_dice_loss(y_true, y_pred, smooth=1e-6):
-    y_true_f = tf.keras.backend.flatten(y_true)
-    y_pred_f = tf.keras.backend.flatten(y_pred)
-    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
-    dice = (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
-    return 1 - dice
-
-
-# In[ ]:
-
-
 def dice_loss(y_true, y_pred, smooth=1e-6):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
@@ -91,18 +75,12 @@ def dice_loss(y_true, y_pred, smooth=1e-6):
 
 # This function merges Dice Loss and Binary Cross-Entropy into one loss calculation:
 
-# In[ ]:
-
-
-# Tversky Loss (for better control over class imbalance)
+# Tversky Loss (for better control over class imbalance) not good for this maybe
 def tversky_loss(y_true, y_pred, alpha=0.7, beta=0.3, smooth=1e-6):
     true_pos = tf.keras.backend.sum(y_true * y_pred)
     false_neg = tf.keras.backend.sum(y_true * (1 - y_pred))
     false_pos = tf.keras.backend.sum((1 - y_true) * y_pred)
     return 1 - (true_pos + smooth) / (true_pos + alpha * false_neg + beta * false_pos + smooth)
-
-
-# In[ ]:
 
 
 # Combined Loss Function (Tversky + Dice + BCE)
@@ -117,16 +95,14 @@ def combined_loss(y_true, y_pred):
     bce_loss = tf.keras.losses.binary_crossentropy(y_true, y_pred)
 
     # Tversky Loss
-    tversky_loss_value = tversky_loss(y_true, y_pred)
+    # tversky_loss_value = tversky_loss(y_true, y_pred)
 
     # Combined Loss
-    return 0.1 * dice_loss + 0.7 * tversky_loss_value + 0.2 * bce_loss
+    return 0.5 * dice_loss + 0.5 * bce_loss
 
 
 # In[ ]:
 
-
-from tensorflow.keras import layers, models, optimizers
 
 with strategy.scope():
     def unet_model(input_shape=(256, 256, 3)):
@@ -174,9 +150,6 @@ with strategy.scope():
 
 # Function to encode mask, img: numpy array, 1 - mask, 0 - background
 # Returns run length as string formatted
-
-# In[ ]:
-
 
 def mask2rle(img):
     pixels = img.flatten()
@@ -372,15 +345,10 @@ def visualize_random_sample(dataset, batch_size):
 
 # In[ ]:
 
-
-import gc
-
 tf.keras.backend.clear_session()
 gc.collect()
 
 print("✅ GPU cache cleared")
-
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 # Custom EarlyStopping with Logging
 class LoggedEarlyStopping(EarlyStopping):
@@ -454,9 +422,6 @@ lr_schedule = LoggedReduceLROnPlateau(
 
 # In[ ]:
 
-
-from tensorflow.keras import optimizers
-
 with strategy.scope():
     model = unet_model()  # Model creation inside strategy scope
     model.compile(
@@ -520,9 +485,6 @@ print(f"📊 Evaluation Results: {results}")
 # 
 
 # In[ ]:
-
-
-import csv
 
 def save_rle_to_csv(rle_data, output_csv_path="../submission2.csv"):
     with open(output_csv_path, mode='w', newline='') as file:
