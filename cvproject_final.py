@@ -120,7 +120,7 @@ if os.path.exists("checkpoint.keras"):
     model = load_model("checkpoint.keras", custom_objects={
                        "iou_score": iou_score})
 else:
-    print("🆕 Starting fresh model...")
+    print("Starting fresh model...")
 
 callbacks = [
     ModelCheckpoint("checkpoint.keras", monitor="val_iou_score",
